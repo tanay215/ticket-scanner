@@ -1,5 +1,5 @@
 /**
- * Dandiya Ticket Verification & Check-in Backend
+ * Dandiya Ticket Verification, Check-in & Automatic Ticket Generation Backend
  * Google Apps Script Web App with JSONP Cross-Origin Support
  * 
  * Google Sheet Tab Name: "dandiya"
@@ -29,6 +29,60 @@ const COL_TICKET_ID      = 10; // J
 const COL_QR_TOKEN       = 11; // K
 const COL_PAYMENT_STATUS = 12; // L
 const COL_CHECKED_IN     = 13; // M
+
+
+/**
+ * 0. Automatic Ticket Generator Trigger
+ * Trigger: On Form Submit (or run on edit)
+ */
+function generateTicketData(e) {
+  // If run manually from editor without event object, fallback to active sheet & row
+  let sheet, row;
+  if (e && e.range) {
+    sheet = e.range.getSheet();
+    row = e.range.getRow();
+  } else {
+    sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+    if (!sheet) return;
+    row = sheet.getLastRow();
+  }
+
+  // Column numbers
+  const ticketColumn = 10;    // J = Ticket ID
+  const qrTokenColumn = 11;   // K = QR Token
+  const paymentColumn = 12;   // L = Payment Status
+  const checkedInColumn = 13; // M = Checked In
+  const qrCodeColumn = 14;    // N = QR Code
+
+  // 1. Generate Ticket ID (EVT-0001, EVT-0002, etc.)
+  let ticketId = sheet.getRange(row, ticketColumn).getValue();
+  if (!ticketId || !String(ticketId).startsWith("EVT-")) {
+    const ticketNumber = row - 1;
+    ticketId = "EVT-" + String(ticketNumber).padStart(4, "0");
+    sheet.getRange(row, ticketColumn).setValue(ticketId);
+  }
+
+  // 2. Generate unique QR Token
+  let qrToken = sheet.getRange(row, qrTokenColumn).getValue();
+  if (!qrToken) {
+    qrToken = Utilities.getUuid();
+    sheet.getRange(row, qrTokenColumn).setValue(qrToken);
+  }
+
+  // 3. Set Payment Status to PENDING (if cell is empty)
+  if (!sheet.getRange(row, paymentColumn).getValue()) {
+    sheet.getRange(row, paymentColumn).setValue("PENDING");
+  }
+
+  // 4. Set Checked In to NO (if cell is empty)
+  if (!sheet.getRange(row, checkedInColumn).getValue()) {
+    sheet.getRange(row, checkedInColumn).setValue("NO");
+  }
+
+  // 5. Generate QR Code Formula
+  const qrUrl = "https://quickchart.io/qr?text=" + encodeURIComponent(qrToken) + "&size=300";
+  sheet.getRange(row, qrCodeColumn).setFormula('=IMAGE("' + qrUrl + '")');
+}
 
 
 /**
@@ -115,7 +169,7 @@ function doPost(e) {
 }
 
 /**
- * Formats response as JSON or JSONP based on callback parameter presencia
+ * Formats response as JSON or JSONP based on callback parameter presence
  */
 function createFormattedResponse(obj, callback) {
   var jsonString = JSON.stringify(obj);
@@ -149,13 +203,6 @@ function getEntryRule(ticketType) {
 
 /**
  * 1. Verify Ticket Logic
- * 
- * Validation rules:
- * 1. Find QR Token in Column K
- * 2. If token does not exist -> INVALID ("Ticket not found in the ticket database.")
- * 3. If Payment Status is not PAID -> INVALID ("Payment has not been verified for this ticket.")
- * 4. If Checked In is YES -> USED ("This ticket has already been checked in.")
- * 5. If Payment Status == PAID and Checked In == NO -> VALID
  */
 function verifyTicket(token) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
@@ -168,7 +215,6 @@ function verifyTicket(token) {
 
   var data = sheet.getDataRange().getValues();
   
-  // Find matching row (skipping header row)
   var matchedRowIndex = -1;
   for (var i = 1; i < data.length; i++) {
     var rowToken = String(data[i][COL_QR_TOKEN - 1]).trim();
@@ -178,7 +224,6 @@ function verifyTicket(token) {
     }
   }
 
-  // Token not found
   if (matchedRowIndex === -1) {
     return {
       status: 'INVALID',
@@ -194,7 +239,6 @@ function verifyTicket(token) {
   var checkedIn = String(matchedRow[COL_CHECKED_IN - 1]).trim().toUpperCase();
   var entryRule = getEntryRule(ticketType);
 
-  // Check Payment Status
   if (paymentStatus !== 'PAID') {
     return {
       status: 'INVALID',
@@ -202,7 +246,6 @@ function verifyTicket(token) {
     };
   }
 
-  // Check Checked In Status
   if (checkedIn === 'YES') {
     return {
       status: 'USED',
@@ -214,7 +257,6 @@ function verifyTicket(token) {
     };
   }
 
-  // Valid Ticket
   return {
     status: 'VALID',
     name: name,
@@ -226,13 +268,10 @@ function verifyTicket(token) {
 
 /**
  * 2. Check-In Ticket Logic with LockService Concurrency Guard
- * 
- * Ensures Scanner A and Scanner B cannot both check in the same ticket simultaneously.
  */
 function checkInTicket(token) {
   var lock = LockService.getScriptLock();
   
-  // Wait up to 10 seconds to acquire script lock
   var success = lock.tryLock(10000);
   if (!success) {
     return {
@@ -303,7 +342,6 @@ function checkInTicket(token) {
     var sheetRowNumber = matchedRowIndex + 1;
     sheet.getRange(sheetRowNumber, COL_CHECKED_IN).setValue('YES');
 
-    // Flush spreadsheet updates
     SpreadsheetApp.flush();
 
     return {
@@ -322,7 +360,6 @@ function checkInTicket(token) {
       message: 'Check-in error: ' + err.toString()
     };
   } finally {
-    // Always release lock
     lock.releaseLock();
   }
 }
