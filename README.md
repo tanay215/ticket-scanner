@@ -1,97 +1,95 @@
-# 🎟️ Event Ticket Verification & QR Scanner
+# 🎟️ Event Ticket Verification & Automatic PDF Email System
 
-A mobile-first, high-performance external QR scanner frontend for Dandiya event gate staff. Built to integrate seamlessly with an existing **Google Sheets + Google Apps Script** backend without exposing sheet credentials or requiring direct sheet access.
+A mobile-first, high-performance external QR scanner frontend & Apps Script backend for event gate staff. Integrates directly with your **Google Forms + Google Sheets** backend.
 
 ---
 
 ## 🏗 System Architecture
 
 ```
-📱 Phone / Laptop Camera
-         ↓
-🌐 External Scanner Frontend (GitHub Pages / HTTPS)
-         ↓  [HTTPS GET with token & action]
-⚡ Google Apps Script Web App (API Endpoint + LockService)
+📝 Google Form Submission
          ↓
 📊 Google Sheet ("dandiya" tab)
-         ↓  [Query row, verify PAID & Checked In status]
-📋 Response JSON (VALID / USED / INVALID)
+         ↓  [Auto-generates Ticket ID, UUID QR Token, PENDING status, NOT SENT email status]
+💳 Admin Verifies Payment (Edits Column L: PENDING → PAID)
+         ↓  [Installable Spreadsheet onEdit trigger: handlePaymentEdit(e)]
+📄 Generates PDF Ticket (with embedded scannable QR token) + Emails Attendee (Col D)
+         ↓  [Sets Column O: NOT SENT → SENT]
+📱 Event Entrance Scanning (GitHub Pages QR Scanner)
+         ↓  [HTTPS Fetch / JSONP API]
+⚡ Google Apps Script Backend (verifyTicket / checkInTicket + LockService)
          ↓
-🎨 Scanner UI Card (Mobile Gate Staff Screen)
+✅ Mark Ticket Checked In (Column M: NO → YES)
 ```
 
 ---
 
-## 🚀 Features
+## 📊 Google Sheet Column Structure
 
-- **Mobile-First Responsive UI**: Dark festive theme designed specifically for outdoor/night event conditions with high visual contrast.
-- **Auto-Camera Selection**: Automatically detects and prefers rear-facing/environment camera on smartphones.
-- **Audio & Haptic Feedback**: Synthesizes audio chimes and device vibration for instant scan feedback.
-- **Duplicate Scan Lockout**: Pauses scanner immediately upon QR code detection to prevent duplicate network requests.
-- **Concurrency Protection**: Google Apps Script `LockService` prevents race conditions when multiple gate staff scan the same ticket simultaneously.
-- **Manual Token Entry**: Fallback input drawer for staff to paste or type ticket UUID tokens if camera lens is dirty or unreadable.
-- **Zero Frontend Credential Exposure**: Pure HTTPS client-side communication directly with Apps Script. No service accounts or sheet credentials stored in frontend code.
-
----
-
-## 📂 Project Structure
-
-```
-.
-├── index.html               # Main HTML entry point for GitHub Pages
-├── style.css                # Mobile-first CSS styling & festive dark mode theme
-├── script.js                # Core JS logic: QR Scanner, Web Audio API, Apps Script fetch calls
-├── google-apps-script/
-│   └── Code.gs              # Apps Script backend API code with LockService concurrency guard
-└── README.md                # System documentation & setup guide
-```
+| Col | Letter | Field Name | Description & Default Values |
+| :---: | :---: | :--- | :--- |
+| **1** | **A** | Timestamp | Submission time |
+| **2** | **B** | Full Name | Guest Name |
+| **3** | **C** | Phone Number | Contact number |
+| **4** | **D** | Email Address | Recipient email for PDF ticket |
+| **5** | **E** | Ticket Type | `Couple`, `Stag`, etc. |
+| **6** | **F** | Upload Screenshot | Payment proof |
+| **7** | **G** | UTR Number | Transaction ID |
+| **8** | **H** | Upload Screenshot (couple) | Couple payment proof |
+| **9** | **I** | UTR Number (couple) | Couple transaction ID |
+| **10** | **J** | Ticket ID | Auto-generated: `EVT-0001`, `EVT-0002` |
+| **11** | **K** | QR Token | Auto-generated: Unique UUID (`Utilities.getUuid()`) |
+| **12** | **L** | Payment Status | `PENDING`, `PAID`, `REJECTED` |
+| **13** | **M** | Checked In | `NO`, `YES` |
+| **14** | **N** | QR Code | Formula: `=IMAGE("https://quickchart.io/qr?text=...")` |
+| **15** | **O** | Ticket Email | `NOT SENT`, `SENT` |
 
 ---
 
-## ⚙️ Google Apps Script Backend Setup Instructions
+## 🚀 Key Features
 
-If you need to update or deploy your Google Apps Script backend:
-
-1. Open your Google Sheet connected to your Google Form.
-2. Go to **Extensions** → **Apps Script**.
-3. Replace the existing script content with the code provided in [`google-apps-script/Code.gs`](file:///Users/tanaytenginkai/Desktop/Paper1192/Ticket/google-apps-script/Code.gs).
-4. Verify column mapping matches your Google Sheet tab `dandiya`:
-   - Column B: `Full Name`
-   - Column E: `Ticket Type`
-   - Column J: `Ticket ID`
-   - Column K: `QR Token`
-   - Column L: `Payment Status` (`PAID`, `PENDING`, `REJECTED`)
-   - Column M: `Checked In` (`NO`, `YES`)
-5. Click **Deploy** → **New deployment**.
-6. Select **Web app**:
-   - **Description**: `Dandiya Ticket Scanner API v2`
-   - **Execute as**: `Me (your google account)`
-   - **Who has access**: `Anyone` *(Crucial for external HTTPS scanner access)*
-7. Copy the generated **Web App URL**:
-   `https://script.google.com/macros/s/AKfycbz9asD_F3ZM9wtowg-Qcbk7YBskBkdnlFx1sIQfNGCTRxmXb2gTMcITGPwFy2m1tg0o/exec`
+1. **Automatic Ticket ID & Token Generation**: On form submission, `generateTicketData(e)` auto-populates `EVT-XXXX`, UUID QR Token, `PENDING` payment status, `NO` checked in status, and `NOT SENT` email status.
+2. **Automatic PDF Ticket Generation**: When Admin changes Column L (`Payment Status`) from `PENDING` → `PAID`:
+   - Checks Column O (`Ticket Email`).
+   - If `NOT SENT`: generates a crisp HTML-rendered PDF ticket with embedded scannable QR Code image (encoding the exact UUID token from Column K).
+   - Emails the PDF ticket to the buyer's email (Column D).
+   - Updates Column O to `SENT`.
+3. **Idempotency & Retry Safety**:
+   - If Column O is already `SENT`, editing Column L again will **NOT** resend duplicate emails.
+   - If email sending or PDF generation fails, Column O stays `NOT SENT`, allowing safe retries.
+4. **LockService Protection**: Both check-in API operations and PDF email generation use Google Apps Script `LockService` to prevent race conditions during concurrent edits.
+5. **Mobile-First QR Scanner**: Hosted on GitHub Pages ([`https://tanay215.github.io/ticket-scanner/`](https://tanay215.github.io/ticket-scanner/)).
 
 ---
 
-## 🌐 Deploying to GitHub Pages
+## ⚙️ Google Apps Script Triggers Setup Instructions
 
-1. Push this repository to GitHub:
-   ```bash
-   git add .
-   git commit -m "Add Dandiya ticket QR verification system frontend and backend"
-   git push origin main
-   ```
-2. On GitHub, navigate to your repository **Settings** → **Pages**.
-3. Under **Build and deployment**:
-   - **Source**: `Deploy from a branch`
-   - **Branch**: `main` / `/ (root)`
-4. Click **Save**.
-5. Your live scanner site will be available at:
-   `https://<your-github-username>.github.io/<repository-name>/`
+To activate the automatic ticket generator & PDF email automation:
+
+1. Open your Google Sheet → Go to **Extensions** → **Apps Script**.
+2. Replace `Code.gs` with the complete code in [`google-apps-script/Code.gs`](file:///Users/tanaytenginkai/Desktop/Paper1192/Ticket/google-apps-script/Code.gs).
+3. Click **Triggers** (⏰ clock icon on left sidebar).
+
+### Trigger 1: Form Submit (Auto Ticket Generator)
+- Click **Add Trigger**:
+  - Choose function: `generateTicketData`
+  - Select event source: **From spreadsheet**
+  - Select event type: **On form submit**
+- Click **Save**.
+
+### Trigger 2: Spreadsheet Edit (Auto PDF Email Sender)
+- Click **Add Trigger**:
+  - Choose function: `handlePaymentEdit`
+  - Select event source: **From spreadsheet**
+  - Select event type: **On edit**
+- Click **Save** and authorize permissions.
 
 ---
 
-## 🔒 Security & Concurrency
+## 🌐 Deploying Web App Updates
 
-- **Payment Verification**: Front-end never decides ticket validity. The Apps Script backend checks `Payment Status == 'PAID'` and `Checked In == 'NO'`.
-- **LockService Protection**: `LockService.getScriptLock()` wraps the check-in read-modify-write operation in Apps Script. Scanner A and Scanner B cannot both check in the same ticket at the same time.
-- **Sanitized Outputs**: Sensitive buyer info (phone number, email address, payment screenshots, UTR numbers) are excluded from the API response payload.
+If deploying a Web App update:
+1. In Apps Script, click **Deploy** → **Manage deployments**.
+2. Edit ✏️ active deployment → Choose **New version**.
+3. Set **Who has access**: `Anyone`.
+4. Click **Deploy**.
