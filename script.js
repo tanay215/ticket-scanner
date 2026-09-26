@@ -7,7 +7,7 @@
   'use strict';
 
   // Configuration Constants
-  const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwm2U7UvQRWErGouH8d6gkNZMVgJOlC72fczuUJCPqlzEtQDWg5IFPNrBdATNuzK7R8/exec';
+  const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzg38bHL9qIICg2DFeCk2YILsvtPL0QXd24kf1fZako2poVZthtj05K_a00Ee7bN0dK/exec';
   const STORAGE_KEY_API = 'ticket_scanner_api_url';
   const STORAGE_KEY_AUDIO = 'ticket_scanner_audio_enabled';
 
