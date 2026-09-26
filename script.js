@@ -8,7 +8,7 @@
 
   // Configuration Constants
   const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzg38bHL9qIICg2DFeCk2YILsvtPL0QXd24kf1fZako2poVZthtj05K_a00Ee7bN0dK/exec';
-  const STORAGE_KEY_API = 'ticket_scanner_api_url';
+  const STORAGE_KEY_API = 'ticket_scanner_api_url_v2';
   const STORAGE_KEY_AUDIO = 'ticket_scanner_audio_enabled';
 
   // State Variables
@@ -19,6 +19,12 @@
   let lastScannedToken = null;
   let audioEnabled = true;
   let torchOn = false;
+
+  // Clear legacy/stale localstorage keys from earlier deployments
+  try {
+    localStorage.removeItem('dandiya_api_url');
+    localStorage.removeItem('ticket_scanner_api_url');
+  } catch (e) {}
 
   // DOM Elements
   const sections = {
@@ -628,6 +634,8 @@
 
     elements.resetApiUrlBtn.addEventListener('click', () => {
       localStorage.removeItem(STORAGE_KEY_API);
+      localStorage.removeItem('ticket_scanner_api_url');
+      localStorage.removeItem('dandiya_api_url');
       elements.apiUrlInput.value = DEFAULT_API_URL;
       alert('API Web App URL reset to default.');
     });
