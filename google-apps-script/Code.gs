@@ -608,12 +608,19 @@ function verifyTicket(token) {
   var entryRule = getEntryRule(ticketType);
   
   var tFetch = Date.now();
-  Logger.log("VerifyTiming: SheetLoad=" + (tSheet-tStart) + "ms, TokenFind=" + (tFind-tSheet) + "ms, DataFetch=" + (tFetch-tFind) + "ms, Total=" + (tFetch-tStart) + "ms");
+  var timing = {
+    total: tFetch - tStart,
+    sheetLoad: tSheet - tStart,
+    tokenFind: tFind - tSheet,
+    dataFetch: tFetch - tFind
+  };
+  Logger.log("VerifyTiming: " + JSON.stringify(timing));
 
   if (paymentStatus !== 'PAID') {
     return {
       status: 'INVALID',
-      message: 'Payment has not been verified for this ticket.'
+      message: 'Payment has not been verified for this ticket.',
+      timing: timing
     };
   }
 
@@ -624,7 +631,8 @@ function verifyTicket(token) {
       name: name,
       ticketId: ticketId,
       ticketType: ticketType,
-      entry: entryRule
+      entry: entryRule,
+      timing: timing
     };
   }
 
@@ -633,7 +641,8 @@ function verifyTicket(token) {
     name: name,
     ticketId: ticketId,
     ticketType: ticketType,
-    entry: entryRule
+    entry: entryRule,
+    timing: timing
   };
 }
 
@@ -711,9 +720,15 @@ function checkInTicket(token) {
       SpreadsheetApp.flush();
       
       var tEnd = Date.now();
-      Logger.log("CheckInTiming: SheetLoad=" + (tSheet-tStart) + "ms, TokenFind=" + (tFind-tSheet) + 
-                 "ms, DataFetch=" + (tFetch-tFind) + "ms, LockAcquire=" + (tLock-tFetch) + 
-                 "ms, WriteFlush=" + (tEnd-tLock) + "ms, Total=" + (tEnd-tStart) + "ms");
+      var timing = {
+        total: tEnd - tStart,
+        sheetLoad: tSheet - tStart,
+        tokenFind: tFind - tSheet,
+        dataFetch: tFetch - tFind,
+        lockAcquire: tLock - tFetch,
+        writeFlush: tEnd - tLock
+      };
+      Logger.log("CheckInTiming: " + JSON.stringify(timing));
 
       var name = String(matchedRow[COL_FULL_NAME - 1]).trim();
       var ticketId = String(matchedRow[COL_TICKET_ID - 1]).trim();
@@ -725,7 +740,8 @@ function checkInTicket(token) {
         name: name,
         ticketId: ticketId,
         ticketType: ticketType,
-        entry: getEntryRule(ticketType)
+        entry: getEntryRule(ticketType),
+        timing: timing
       };
 
     } finally {
