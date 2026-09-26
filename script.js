@@ -1,16 +1,13 @@
 /**
  * Ticket Verification System - Frontend Logic
  * Standalone HTTPS Frontend for GitHub Pages & Mobile Web
- * 
- * Uses Cross-Origin JSONP API communication with Google Apps Script Web App
- * to completely bypass Same-Origin Policy & CORS restrictions on GitHub Pages.
  */
 
 (function () {
   'use strict';
 
   // Configuration Constants
-  const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxPHVM-MMy1K0ogIoqv4UR16iAXp0nZER9Ei-VcpvOaP-EzyKhhRzeVhWWeGyHx44LQ/exec';
+  const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbz9asD_F3ZM9wtowg-Qcbk7YBskBkdnlFx1sIQfNGCTRxmXb2gTMcITGPwFy2m1tg0o/exec';
   const STORAGE_KEY_API = 'ticket_scanner_api_url';
   const STORAGE_KEY_AUDIO = 'ticket_scanner_audio_enabled';
 
@@ -100,82 +97,53 @@
   }
 
   /* ==========================================================================
-     Cross-Origin API Communication (JSONP + Fetch Fallback)
-     Works reliably on GitHub Pages, Safari, Chrome, and iOS devices.
+     Cross-Origin API Communication (Browser Fetch with Redirect & Error Handling)
      ========================================================================== */
-  function sendApiRequest(params) {
-    return new Promise((resolve, reject) => {
-      const callbackName = 'ticket_cb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
-      const timeoutMs = 15000; // 15 second timeout
-      let timeoutTimer = null;
-
-      const cleanup = () => {
-        if (timeoutTimer) clearTimeout(timeoutTimer);
-        delete window[callbackName];
-        const existingScript = document.getElementById(callbackName);
-        if (existingScript && existingScript.parentNode) {
-          existingScript.parentNode.removeChild(existingScript);
-        }
-      };
-
-      // Register global callback function for JSONP
-      window[callbackName] = function (responseData) {
-        cleanup();
-        if (responseData) {
-          resolve(responseData);
-        } else {
-          reject(new Error('Received empty response from server.'));
-        }
-      };
-
-      // Construct request URL
-      const apiUrl = getApiUrl();
-      const urlParams = new URLSearchParams();
-
-      Object.keys(params).forEach(key => {
-        urlParams.append(key, params[key]);
-      });
-      urlParams.append('callback', callbackName);
-      urlParams.append('_t', Date.now()); // Prevent browser caching
-
-      const fullUrl = `${apiUrl}?${urlParams.toString()}`;
-
-      // Create JSONP script tag
-      const script = document.createElement('script');
-      script.id = callbackName;
-      script.src = fullUrl;
-      script.async = true;
-
-      script.onerror = function () {
-        cleanup();
-        fetchFallback(params).then(resolve).catch(reject);
-      };
-
-      timeoutTimer = setTimeout(() => {
-        cleanup();
-        reject(new Error('Request timed out. Please check your internet connection or backend URL.'));
-      }, timeoutMs);
-
-      document.head.appendChild(script);
-    });
-  }
-
-  // Fallback fetch method if JSONP script tag creation is blocked by strict CSP
-  async function fetchFallback(params) {
+  async function sendApiRequest(params) {
     const apiUrl = getApiUrl();
     const urlParams = new URLSearchParams(params);
-    urlParams.append('_t', Date.now());
+    urlParams.append('_t', Date.now()); // Prevent browser caching
 
-    const response = await fetch(`${apiUrl}?${urlParams.toString()}`, {
-      method: 'GET',
-      redirect: 'follow'
-    });
+    const fullUrl = `${apiUrl}?${urlParams.toString()}`;
 
-    if (!response.ok) {
-      throw new Error(`Server returned status ${response.status}`);
+    try {
+      const response = await fetch(fullUrl, {
+        method: 'GET',
+        redirect: 'follow',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server HTTP Error ${response.status}`);
+      }
+
+      const text = await response.text();
+
+      // Detect if Google returned a Google Account Login page instead of JSON output
+      if (text.includes('accounts.google.com') || text.includes('ServiceLogin') || text.includes('google.com/v3/signin')) {
+        throw new Error('Apps Script Permission Error: Web App deployment "Who has access" MUST be set to "Anyone" in Google Apps Script.');
+      }
+
+      // Parse JSON output
+      try {
+        return JSON.parse(text);
+      } catch (jsonErr) {
+        // If response was wrapped in JSONP callback string like `ticket_cb_123({...})`
+        const jsonpMatch = text.match(/^[a-zA-Z0-9_.]+\s*\(([\s\S]*)\)\s*;?$/);
+        if (jsonpMatch && jsonpMatch[1]) {
+          return JSON.parse(jsonpMatch[1]);
+        }
+        throw new Error(`Invalid response format from ticket server.`);
+      }
+    } catch (err) {
+      console.error('API Request Failure:', err);
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        throw new Error('Network / Access Error. Verify that Apps Script deployment "Who has access" is set to "Anyone".');
+      }
+      throw err;
     }
-
-    return await response.json();
   }
 
   /* ==========================================================================
@@ -399,11 +367,17 @@
         const urlObj = new URL(token);
         token = urlObj.searchParams.get('token') || token;
       } catch (e) {}
-    } else if (token.includes('/')) {
-      const parts = token.split('/');
-      token = parts[parts.length - 1];
+    } else if (token.includes('://')) {
+      try {
+        const urlObj = new URL(token);
+        const parts = urlObj.pathname.split('/').filter(Boolean);
+        if (parts.length > 0) {
+          token = parts[parts.length - 1];
+        }
+      } catch (e) {}
     }
 
+    token = token.trim();
     lastScannedToken = token;
     verifyToken(token);
   }

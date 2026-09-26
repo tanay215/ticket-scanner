@@ -1,6 +1,6 @@
 /**
- * Dandiya Ticket Verification, Check-in & Automatic Ticket Generation Backend
- * Google Apps Script Web App with JSONP Cross-Origin Support
+ * Ticket Verification, Check-in & Automatic Ticket Generation Backend
+ * Google Apps Script Web App
  * 
  * Google Sheet Tab Name: "dandiya"
  * Columns:
@@ -36,7 +36,6 @@ const COL_CHECKED_IN     = 13; // M
  * Trigger: On Form Submit (or run on edit)
  */
 function generateTicketData(e) {
-  // If run manually from editor without event object, fallback to active sheet & row
   let sheet, row;
   if (e && e.range) {
     sheet = e.range.getSheet();
@@ -47,7 +46,6 @@ function generateTicketData(e) {
     row = sheet.getLastRow();
   }
 
-  // Column numbers
   const ticketColumn = 10;    // J = Ticket ID
   const qrTokenColumn = 11;   // K = QR Token
   const paymentColumn = 12;   // L = Payment Status
@@ -87,7 +85,7 @@ function generateTicketData(e) {
 
 /**
  * Web App Entry Point: GET Requests
- * Supports both standard JSON and JSONP callbacks for cross-origin browser fetch (GitHub Pages)
+ * Supports external HTTPS fetch from GitHub Pages
  */
 function doGet(e) {
   try {
@@ -175,7 +173,6 @@ function createFormattedResponse(obj, callback) {
   var jsonString = JSON.stringify(obj);
 
   if (callback) {
-    // Sanitize callback string to prevent XSS (only letters, numbers, underscores, dots)
     var safeCallback = String(callback).replace(/[^a-zA-Z0-9_.]/g, '');
     return ContentService.createTextOutput(safeCallback + '(' + jsonString + ');')
       .setMimeType(ContentService.MimeType.JAVASCRIPT);
@@ -214,11 +211,12 @@ function verifyTicket(token) {
   }
 
   var data = sheet.getDataRange().getValues();
+  var tokenLower = token.toLowerCase();
   
   var matchedRowIndex = -1;
   for (var i = 1; i < data.length; i++) {
     var rowToken = String(data[i][COL_QR_TOKEN - 1]).trim();
-    if (rowToken === token) {
+    if (rowToken.toLowerCase() === tokenLower) {
       matchedRowIndex = i;
       break;
     }
@@ -292,11 +290,12 @@ function checkInTicket(token) {
     }
 
     var data = sheet.getDataRange().getValues();
+    var tokenLower = token.toLowerCase();
     var matchedRowIndex = -1;
 
     for (var i = 1; i < data.length; i++) {
       var rowToken = String(data[i][COL_QR_TOKEN - 1]).trim();
-      if (rowToken === token) {
+      if (rowToken.toLowerCase() === tokenLower) {
         matchedRowIndex = i;
         break;
       }
