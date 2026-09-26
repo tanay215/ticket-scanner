@@ -1,4 +1,4 @@
-# 🪔 Dandiya Event Ticket Verification & QR Scanner
+# Event Ticket Verification & QR Scanner
 
 A mobile-first, high-performance external QR scanner frontend for Dandiya event gate staff. Built to integrate seamlessly with an existing **Google Sheets + Google Apps Script** backend without exposing sheet credentials or requiring direct sheet access.
 
