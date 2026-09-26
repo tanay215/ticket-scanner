@@ -1,17 +1,17 @@
 /* ==========================================================================
    Dandiya Ticket Verification System - CSS Stylesheet
-   Modern, Dark Mode, Festive Aesthetics with High Contrast Mobile Design
+   Phone-First Mobile App Container & Festive Aesthetics
    ========================================================================== */
 
 :root {
   /* Color Tokens */
-  --bg-dark: #090d16;
-  --bg-card: #131a2a;
-  --bg-card-hover: #1c263c;
-  --bg-glass: rgba(19, 26, 42, 0.85);
+  --bg-dark: #070a11;
+  --bg-card: #121826;
+  --bg-card-hover: #1a2235;
+  --bg-glass: rgba(18, 24, 38, 0.88);
 
   --border-color: rgba(255, 255, 255, 0.1);
-  --border-glow: rgba(245, 158, 11, 0.3);
+  --border-glow: rgba(245, 158, 11, 0.35);
 
   --text-main: #F9FAFB;
   --text-muted: #9CA3AF;
@@ -48,7 +48,7 @@
   --shadow-glow-invalid: 0 0 25px rgba(239, 68, 68, 0.25);
   --shadow-glow-used: 0 0 25px rgba(249, 115, 22, 0.25);
 
-  /* Layout */
+  /* Radius */
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
@@ -72,33 +72,139 @@ html, body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
-  overflow-x: hidden;
+  overflow: hidden; /* Lock viewport scroll for phone container feel */
 }
 
 body {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
   background-image: 
-    radial-gradient(circle at 15% 15%, rgba(245, 158, 11, 0.07) 0%, transparent 40%),
-    radial-gradient(circle at 85% 85%, rgba(225, 29, 72, 0.07) 0%, transparent 40%);
+    radial-gradient(circle at 20% 20%, rgba(245, 158, 11, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 80% 80%, rgba(225, 29, 72, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.95) 0%, var(--bg-dark) 100%);
   background-attachment: fixed;
+}
+
+/* Phone Frame Wrapper (Container for Desktop & Mobile) */
+.phone-frame-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* Smartphone Device Mockup (Desktop View) */
+.phone-device {
+  width: 100%;
+  max-width: 420px;
+  height: min(840px, 94vh);
+  background: var(--bg-dark);
+  border-radius: 46px;
+  border: 10px solid #1e2638;
+  box-shadow: 
+    0 25px 60px -15px rgba(0, 0, 0, 0.8), 
+    0 0 30px rgba(245, 158, 11, 0.15),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.08);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Phone Camera Notch / Dynamic Island */
+.phone-notch {
+  width: 100%;
+  height: 30px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 150;
+  pointer-events: none;
+}
+
+.notch-pill {
+  width: 110px;
+  height: 22px;
+  background: #000;
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+}
+
+.notch-camera {
+  width: 10px;
+  height: 10px;
+  background: #0d121c;
+  border-radius: 50%;
+  border: 1px solid #1a2233;
+}
+
+.notch-speaker {
+  width: 35px;
+  height: 4px;
+  background: #1a2233;
+  border-radius: 2px;
+}
+
+/* Phone Screen Viewport */
+.phone-screen {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  background-color: var(--bg-dark);
+  padding-top: 24px; /* Space under notch */
+  padding-bottom: 14px; /* Space above home bar */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Custom Scrollbar for phone screen */
+.phone-screen::-webkit-scrollbar {
+  width: 4px;
+}
+.phone-screen::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+/* Phone Home Indicator Bar */
+.phone-home-bar {
+  width: 120px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  margin: 6px auto 2px auto;
+  flex-shrink: 0;
 }
 
 /* App Header */
 .app-header {
-  background: rgba(19, 26, 42, 0.9);
+  background: rgba(18, 24, 38, 0.95);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-color);
   position: sticky;
   top: 0;
   z-index: 100;
-  padding: 12px 16px;
+  padding: 10px 14px;
 }
 
 .header-container {
-  max-width: 500px;
-  margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -111,13 +217,13 @@ body {
 }
 
 .brand-icon {
-  font-size: 1.8rem;
+  font-size: 1.6rem;
   filter: drop-shadow(0 2px 4px rgba(245, 158, 11, 0.4));
 }
 
 .brand-text h1 {
   font-family: var(--font-heading);
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 700;
   background: var(--brand-gradient);
   -webkit-background-clip: text;
@@ -127,7 +233,7 @@ body {
 
 .brand-text .sub-title {
   display: block;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -136,36 +242,34 @@ body {
 
 .header-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .icon-btn {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border-color);
   color: var(--text-main);
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   transition: all 0.2s ease;
 }
 
 .icon-btn:hover, .icon-btn:active {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.14);
   border-color: var(--brand-primary);
 }
 
 /* Main Layout */
 .main-container {
   flex: 1;
-  max-width: 500px;
   width: 100%;
-  margin: 0 auto;
-  padding: 16px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
 }
@@ -190,23 +294,23 @@ body {
 }
 
 .scanner-card {
-  padding: 20px;
+  padding: 16px;
 }
 
 .card-header {
   text-align: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .card-header h2 {
   font-family: var(--font-heading);
-  font-size: 1.35rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-main);
 }
 
 .card-header .subtitle {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
   margin-top: 2px;
 }
@@ -219,7 +323,7 @@ body {
   background-color: #000;
   border-radius: var(--radius-md);
   overflow: hidden;
-  border: 2px solid rgba(245, 158, 11, 0.2);
+  border: 2px solid rgba(245, 158, 11, 0.25);
 }
 
 .qr-reader-viewport {
@@ -247,17 +351,17 @@ body {
 }
 
 .scan-frame {
-  width: 70%;
-  height: 70%;
+  width: 72%;
+  height: 72%;
   position: relative;
   border-radius: 12px;
-  box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.48);
 }
 
 .scan-frame .corner {
   position: absolute;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-color: var(--brand-primary);
   border-style: solid;
 }
@@ -297,7 +401,7 @@ body {
   width: 90%;
   height: 3px;
   background: linear-gradient(90deg, transparent, var(--brand-primary), transparent);
-  box-shadow: 0 0 10px var(--brand-primary);
+  box-shadow: 0 0 12px var(--brand-primary);
   animation: scan-animation 2s ease-in-out infinite alternate;
 }
 
@@ -312,19 +416,19 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-top: 14px;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .control-group {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .control-group label {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
   font-weight: 600;
   white-space: nowrap;
@@ -335,9 +439,9 @@ body {
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
   color: var(--text-main);
-  padding: 8px 12px;
+  padding: 8px 10px;
   border-radius: var(--radius-sm);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   outline: none;
 }
 
@@ -347,29 +451,29 @@ body {
 
 /* Manual Input Drawer */
 .manual-input-toggle {
-  margin-top: 14px;
+  margin-top: 12px;
   text-align: center;
 }
 
 .manual-container {
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 1px solid var(--border-color);
 }
 
 .manual-form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .manual-form input {
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
   color: var(--text-main);
-  padding: 12px 14px;
+  padding: 10px 12px;
   border-radius: var(--radius-sm);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-family: monospace;
   outline: none;
 }
@@ -409,10 +513,10 @@ body {
 }
 
 .status-banner {
-  padding: 24px 20px;
+  padding: 20px 16px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
 .banner-valid {
@@ -436,13 +540,13 @@ body {
 }
 
 .banner-icon {
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.8rem;
+  font-size: 1.6rem;
   font-weight: 800;
   flex-shrink: 0;
 }
@@ -463,7 +567,7 @@ body {
 }
 
 .banner-text .status-tag {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -472,7 +576,7 @@ body {
 
 .banner-text h2 {
   font-family: var(--font-heading);
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   line-height: 1.2;
@@ -491,23 +595,23 @@ body {
 }
 
 .card-body {
-  padding: 20px;
+  padding: 16px;
 }
 
 /* Ticket Entry Highlight Badge */
 .ticket-entry-highlight {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-color);
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .ticket-entry-highlight .label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
   font-weight: 600;
 }
@@ -515,10 +619,10 @@ body {
 .entry-badge {
   background: var(--brand-gradient);
   color: #fff;
-  padding: 6px 14px;
+  padding: 5px 12px;
   border-radius: var(--radius-full);
   font-weight: 800;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   letter-spacing: 0.02em;
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
 }
@@ -532,12 +636,12 @@ body {
 .ticket-details-grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: rgba(0, 0, 0, 0.2);
-  padding: 16px;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 14px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .detail-item {
@@ -545,7 +649,7 @@ body {
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
-  padding-bottom: 8px;
+  padding-bottom: 6px;
 }
 
 .detail-item:last-child {
@@ -554,19 +658,19 @@ body {
 }
 
 .detail-label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
 }
 
 .detail-value {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text-main);
   text-align: right;
 }
 
 .text-bold {
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 1rem;
   color: #fff;
 }
 
@@ -574,7 +678,7 @@ body {
   font-family: monospace;
   letter-spacing: 0.05em;
   background: rgba(255, 255, 255, 0.08);
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: 4px;
 }
 
@@ -582,14 +686,14 @@ body {
 .alert-box {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px;
+  gap: 10px;
+  padding: 14px;
   border-radius: var(--radius-md);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .alert-icon {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
 }
 
 .alert-warning {
@@ -606,32 +710,32 @@ body {
 
 /* Error instructions */
 .error-instructions {
-  background: rgba(0, 0, 0, 0.2);
-  padding: 14px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 12px;
   border-radius: var(--radius-md);
-  margin-bottom: 20px;
-  font-size: 0.85rem;
+  margin-bottom: 16px;
+  font-size: 0.82rem;
   color: var(--text-muted);
 }
 
 .error-instructions h4 {
   color: var(--text-main);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .error-instructions ul {
-  padding-left: 20px;
+  padding-left: 18px;
 }
 
 .error-instructions li {
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 /* Buttons */
 .card-actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .btn {
@@ -639,9 +743,9 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 20px;
+  padding: 12px 18px;
   font-family: var(--font-family);
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 700;
   border-radius: var(--radius-md);
   border: none;
@@ -649,18 +753,21 @@ body {
   transition: all 0.2s ease;
   outline: none;
   text-decoration: none;
+  min-height: 48px; /* Touch target minimum */
 }
 
 .btn-lg {
-  padding: 16px 24px;
-  font-size: 1.1rem;
+  padding: 14px 20px;
+  font-size: 1.05rem;
   letter-spacing: 0.02em;
+  min-height: 52px;
 }
 
 .btn-sm {
-  padding: 6px 12px;
-  font-size: 0.8rem;
+  padding: 6px 10px;
+  font-size: 0.78rem;
   border-radius: var(--radius-sm);
+  min-height: 36px;
 }
 
 .btn-block {
@@ -710,7 +817,7 @@ body {
   background: none;
   border: none;
   color: var(--brand-primary);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
@@ -723,7 +830,7 @@ body {
 
 /* Spinner & Loading State */
 .loading-card {
-  padding: 40px 20px;
+  padding: 36px 16px;
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -732,13 +839,13 @@ body {
 }
 
 .spinner {
-  width: 50px;
-  height: 50px;
+  width: 46px;
+  height: 46px;
   border: 4px solid rgba(245, 158, 11, 0.2);
   border-top-color: var(--brand-primary);
   border-radius: 50%;
   animation: spin 0.9s linear infinite;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 @keyframes spin {
@@ -747,29 +854,29 @@ body {
 
 .loading-card h3 {
   font-family: var(--font-heading);
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   margin-bottom: 4px;
 }
 
 .loading-card p {
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
 }
 
 /* Modal Overlay */
 .modal-overlay {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 0.82);
   backdrop-filter: blur(8px);
-  z-index: 200;
+  z-index: 300;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px;
 }
 
 .modal-overlay.hidden {
@@ -781,13 +888,13 @@ body {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   width: 100%;
-  max-width: 440px;
+  max-width: 360px;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
 
 .modal-header {
-  padding: 16px 20px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
@@ -796,28 +903,28 @@ body {
 
 .modal-header h3 {
   font-family: var(--font-heading);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
 }
 
 .close-btn {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   cursor: pointer;
 }
 
 .modal-body {
-  padding: 20px;
+  padding: 16px;
 }
 
 .form-group {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .form-group label {
   display: block;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   margin-bottom: 6px;
   color: var(--text-muted);
 }
@@ -829,7 +936,7 @@ body {
   color: var(--text-main);
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   outline: none;
 }
 
@@ -838,7 +945,7 @@ body {
 }
 
 .help-text {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-dim);
   margin-top: 4px;
   display: block;
@@ -848,16 +955,17 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 20px;
+  margin-top: 16px;
 }
 
 /* Footer */
 .app-footer {
   text-align: center;
-  padding: 16px;
-  font-size: 0.75rem;
+  padding: 12px;
+  font-size: 0.72rem;
   color: var(--text-dim);
   border-top: 1px solid rgba(255, 255, 255, 0.05);
+  margin-top: auto;
 }
 
 /* Helpers */
@@ -865,27 +973,38 @@ body {
   display: none !important;
 }
 
-/* Responsive adjustments */
-@media (max-width: 480px) {
-  .main-container {
-    padding: 12px;
+/* ==========================================================================
+   REAL SMARTPHONE MEDIA QUERY (Screen width <= 500px)
+   Adapts frame to full mobile screen natively
+   ========================================================================== */
+@media (max-width: 500px) {
+  body {
+    background: var(--bg-dark);
   }
-  
-  .scanner-card {
-    padding: 16px;
+
+  .phone-frame-wrapper {
+    padding: 0;
   }
-  
-  .status-banner {
-    padding: 18px 16px;
+
+  .phone-device {
+    max-width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
   }
-  
-  .banner-icon {
-    width: 44px;
-    height: 44px;
-    font-size: 1.4rem;
+
+  .phone-notch {
+    display: none; /* Mobile phone already has physical notch */
   }
-  
-  .banner-text h2 {
-    font-size: 1.3rem;
+
+  .phone-screen {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .phone-home-bar {
+    display: none;
   }
 }

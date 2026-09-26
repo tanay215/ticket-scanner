@@ -10,7 +10,7 @@
   'use strict';
 
   // Configuration Constants
-  const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbz9asD_F3ZM9wtowg-Qcbk7YBskBkdnlFx1sIQfNGCTRxmXb2gTMcITGPwFy2m1tg0o/exec';
+  const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxPHVM-MMy1K0ogIoqv4UR16iAXp0nZER9Ei-VcpvOaP-EzyKhhRzeVhWWeGyHx44LQ/exec';
   const STORAGE_KEY_API = 'dandiya_api_url';
   const STORAGE_KEY_AUDIO = 'dandiya_audio_enabled';
 
