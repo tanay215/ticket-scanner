@@ -1,6 +1,6 @@
 /**
  * Dandiya Ticket Verification & Check-in Backend
- * Google Apps Script Web App
+ * Google Apps Script Web App with JSONP Cross-Origin Support
  * 
  * Google Sheet Tab Name: "dandiya"
  * Columns:
@@ -33,33 +33,38 @@ const COL_CHECKED_IN     = 13; // M
 
 /**
  * Web App Entry Point: GET Requests
- * Accessible via HTTPS by external web scanner
+ * Supports both standard JSON and JSONP callbacks for cross-origin browser fetch (GitHub Pages)
  */
 function doGet(e) {
   try {
-    var action = e.parameter.action;
-    var token = e.parameter.token;
+    var action = e ? e.parameter.action : '';
+    var token = e ? e.parameter.token : '';
+    var callback = e ? e.parameter.callback : '';
 
     if (!token) {
-      return createJsonResponse({
+      return createFormattedResponse({
         status: 'INVALID',
         message: 'Missing ticket token parameter.'
-      });
+      }, callback);
     }
 
     token = String(token).trim();
 
+    var result;
     if (action === 'checkInTicket') {
-      return createJsonResponse(checkInTicket(token));
+      result = checkInTicket(token);
     } else {
       // Default action: verifyTicket
-      return createJsonResponse(verifyTicket(token));
+      result = verifyTicket(token);
     }
+
+    return createFormattedResponse(result, callback);
+
   } catch (err) {
-    return createJsonResponse({
+    return createFormattedResponse({
       status: 'INVALID',
       message: 'Server Error: ' + err.toString()
-    });
+    }, e ? e.parameter.callback : null);
   }
 }
 
@@ -81,35 +86,49 @@ function doPost(e) {
 
     var action = data.action || e.parameter.action;
     var token = data.token || e.parameter.token;
+    var callback = data.callback || e.parameter.callback;
 
     if (!token) {
-      return createJsonResponse({
+      return createFormattedResponse({
         status: 'INVALID',
         message: 'Missing ticket token parameter.'
-      });
+      }, callback);
     }
 
     token = String(token).trim();
 
+    var result;
     if (action === 'checkInTicket') {
-      return createJsonResponse(checkInTicket(token));
+      result = checkInTicket(token);
     } else {
-      return createJsonResponse(verifyTicket(token));
+      result = verifyTicket(token);
     }
+
+    return createFormattedResponse(result, callback);
+
   } catch (err) {
-    return createJsonResponse({
+    return createFormattedResponse({
       status: 'INVALID',
       message: 'Server Error: ' + err.toString()
-    });
+    }, e ? e.parameter.callback : null);
   }
 }
 
 /**
- * Helper to construct JSON response output
+ * Formats response as JSON or JSONP based on callback parameter presencia
  */
-function createJsonResponse(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
+function createFormattedResponse(obj, callback) {
+  var jsonString = JSON.stringify(obj);
+
+  if (callback) {
+    // Sanitize callback string to prevent XSS (only letters, numbers, underscores, dots)
+    var safeCallback = String(callback).replace(/[^a-zA-Z0-9_.]/g, '');
+    return ContentService.createTextOutput(safeCallback + '(' + jsonString + ');')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  } else {
+    return ContentService.createTextOutput(jsonString)
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 /**
@@ -131,7 +150,7 @@ function getEntryRule(ticketType) {
 /**
  * 1. Verify Ticket Logic
  * 
- * Validation steps:
+ * Validation rules:
  * 1. Find QR Token in Column K
  * 2. If token does not exist -> INVALID ("Ticket not found in the ticket database.")
  * 3. If Payment Status is not PAID -> INVALID ("Payment has not been verified for this ticket.")
@@ -281,7 +300,6 @@ function checkInTicket(token) {
     }
 
     // Update Checked In column (Column M, index 13) to "YES"
-    // Sheet row number is index + 1
     var sheetRowNumber = matchedRowIndex + 1;
     sheet.getRange(sheetRowNumber, COL_CHECKED_IN).setValue('YES');
 

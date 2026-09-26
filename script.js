@@ -1,6 +1,9 @@
 /**
  * Dandiya Ticket Verification System - Frontend Logic
  * Standalone HTTPS Frontend for GitHub Pages & Mobile Web
+ * 
+ * Uses Cross-Origin JSONP API communication with Google Apps Script Web App
+ * to completely bypass Same-Origin Policy & CORS restrictions on GitHub Pages.
  */
 
 (function () {
@@ -97,6 +100,86 @@
   }
 
   /* ==========================================================================
+     Cross-Origin API Communication (JSONP + Fetch Fallback)
+     Works reliably on GitHub Pages, Safari, Chrome, and iOS devices.
+     ========================================================================== */
+  function sendApiRequest(params) {
+    return new Promise((resolve, reject) => {
+      const callbackName = 'dandiya_cb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+      const timeoutMs = 15000; // 15 second timeout
+      let timeoutTimer = null;
+
+      const cleanup = () => {
+        if (timeoutTimer) clearTimeout(timeoutTimer);
+        delete window[callbackName];
+        const existingScript = document.getElementById(callbackName);
+        if (existingScript && existingScript.parentNode) {
+          existingScript.parentNode.removeChild(existingScript);
+        }
+      };
+
+      // Register global callback function for JSONP
+      window[callbackName] = function (responseData) {
+        cleanup();
+        if (responseData) {
+          resolve(responseData);
+        } else {
+          reject(new Error('Received empty response from server.'));
+        }
+      };
+
+      // Construct request URL
+      const apiUrl = getApiUrl();
+      const urlParams = new URLSearchParams();
+
+      Object.keys(params).forEach(key => {
+        urlParams.append(key, params[key]);
+      });
+      urlParams.append('callback', callbackName);
+      urlParams.append('_t', Date.now()); // Prevent browser caching
+
+      const fullUrl = `${apiUrl}?${urlParams.toString()}`;
+
+      // Create JSONP script tag
+      const script = document.createElement('script');
+      script.id = callbackName;
+      script.src = fullUrl;
+      script.async = true;
+
+      script.onerror = function () {
+        cleanup();
+        // Fallback to fetch if script tag fails
+        fetchFallback(params).then(resolve).catch(reject);
+      };
+
+      timeoutTimer = setTimeout(() => {
+        cleanup();
+        reject(new Error('Request timed out. Please check your internet connection or backend URL.'));
+      }, timeoutMs);
+
+      document.head.appendChild(script);
+    });
+  }
+
+  // Fallback fetch method if JSONP script tag creation is blocked by strict CSP
+  async function fetchFallback(params) {
+    const apiUrl = getApiUrl();
+    const urlParams = new URLSearchParams(params);
+    urlParams.append('_t', Date.now());
+
+    const response = await fetch(`${apiUrl}?${urlParams.toString()}`, {
+      method: 'GET',
+      redirect: 'follow'
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server returned status ${response.status}`);
+    }
+
+    return await response.json();
+  }
+
+  /* ==========================================================================
      Audio & Sound Synthesizer (Web Audio API)
      ========================================================================== */
   function playSound(type) {
@@ -107,7 +190,6 @@
       const ctx = new AudioContext();
 
       if (type === 'valid' || type === 'success') {
-        // High ascending chime
         const osc1 = ctx.createOscillator();
         const osc2 = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -133,7 +215,6 @@
         osc1.stop(ctx.currentTime + 0.35);
         osc2.stop(ctx.currentTime + 0.35);
       } else if (type === 'warning' || type === 'used') {
-        // Double low alert chime
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
 
@@ -150,7 +231,6 @@
         osc.start();
         osc.stop(ctx.currentTime + 0.35);
       } else if (type === 'error' || type === 'invalid') {
-        // Low double buzz
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
 
@@ -209,7 +289,6 @@
       populateCameraDropdown(devices);
 
       if (devices && devices.length > 0) {
-        // Prefer rear camera
         let backCamera = devices.find(device => 
           device.label.toLowerCase().includes('back') || 
           device.label.toLowerCase().includes('rear') ||
@@ -300,14 +379,14 @@
   }
 
   /* ==========================================================================
-     QR Scanning Callbacks & Handling
+     QR Scanning Callbacks & Token Handling
      ========================================================================== */
-  function onQrCodeScanned(decodedText, decodedResult) {
+  function onQrCodeScanned(decodedText) {
     if (!decodedText || decodedText === lastScannedToken) {
-      return; // Prevent duplicate trigger for same frame
+      return;
     }
 
-    // Pause scanning immediately so multiple requests aren't fired
+    // Pause scanner immediately to prevent duplicate requests
     if (html5Qrcode && isScanning) {
       try {
         html5Qrcode.pause(true);
@@ -316,10 +395,9 @@
       }
     }
 
-    // Sanitize token (trim whitespace / trailing slashes if full URL was scanned)
     let token = decodedText.trim();
 
-    // If QR contains a full URL with token query param or path, extract token
+    // Extract token if QR contains full URL
     if (token.includes('token=')) {
       try {
         const urlObj = new URL(token);
@@ -334,32 +412,24 @@
     verifyToken(token);
   }
 
-  function onQrCodeError(errorMessage) {
+  function onQrCodeError() {
     // Ignore routine frame read failures
   }
 
   /* ==========================================================================
-     Backend API Communication (Apps Script Web App)
+     1. Verify Ticket Action
      ========================================================================== */
   async function verifyToken(token) {
     showView(sections.loading);
     document.getElementById('loading-title').textContent = 'Verifying Ticket...';
     document.getElementById('loading-desc').textContent = 'Checking database records...';
 
-    const apiUrl = getApiUrl();
-    const requestUrl = `${apiUrl}?action=verifyTicket&token=${encodeURIComponent(token)}&t=${Date.now()}`;
-
     try {
-      const response = await fetch(requestUrl, {
-        method: 'GET',
-        redirect: 'follow'
+      const data = await sendApiRequest({
+        action: 'verifyTicket',
+        token: token
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP Error ${response.status}`);
-      }
-
-      const data = await response.json();
       currentTicketData = { ...data, token: token };
       displayVerificationResult(data);
 
@@ -368,7 +438,7 @@
       playSound('error');
       triggerHaptic('error');
 
-      elements.invalidMessage.textContent = 'Network or API Connection Error. Please check your internet connection and try again.';
+      elements.invalidMessage.textContent = error.message || 'Network or API Connection Error. Please check your internet connection.';
       showView(sections.invalid);
     }
   }
@@ -428,7 +498,7 @@
   }
 
   /* ==========================================================================
-     Check-In Action Handler
+     2. Check-In Ticket Action
      ========================================================================== */
   async function checkInTicket() {
     if (!currentTicketData || !currentTicketData.token) {
@@ -436,26 +506,17 @@
       return;
     }
 
-    // UI Loading state on button
     elements.checkinBtn.disabled = true;
     elements.checkinBtn.querySelector('.btn-text').textContent = 'Checking in...';
     elements.checkinBtn.querySelector('.btn-icon').textContent = '⏳';
 
-    const apiUrl = getApiUrl();
     const token = currentTicketData.token;
-    const requestUrl = `${apiUrl}?action=checkInTicket&token=${encodeURIComponent(token)}&t=${Date.now()}`;
 
     try {
-      const response = await fetch(requestUrl, {
-        method: 'GET',
-        redirect: 'follow'
+      const data = await sendApiRequest({
+        action: 'checkInTicket',
+        token: token
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP Error ${response.status}`);
-      }
-
-      const data = await response.json();
 
       if (data.success || data.status === 'SUCCESS' || data.status === 'VALID') {
         playSound('success');
@@ -471,7 +532,6 @@
         playSound('error');
         triggerHaptic('error');
 
-        // Check-in failed (e.g. race condition where someone else checked in)
         elements.usedName.textContent = data.name || currentTicketData.name || '-';
         elements.usedTicketId.textContent = data.ticketId || currentTicketData.ticketId || '-';
         elements.usedTicketType.textContent = data.ticketType || currentTicketData.ticketType || '-';
@@ -480,10 +540,10 @@
         showView(sections.used);
       }
     } catch (err) {
-      console.error('Check-in network error:', err);
+      console.error('Check-in error:', err);
       playSound('error');
       triggerHaptic('error');
-      alert('Network error while checking in ticket. Please try again.');
+      alert('Network error while checking in ticket. Please check your internet connection and try again.');
       
       elements.checkinBtn.disabled = false;
       elements.checkinBtn.querySelector('.btn-text').textContent = 'CHECK IN';
@@ -503,7 +563,6 @@
       try {
         await html5Qrcode.resume();
       } catch (e) {
-        // If resume fails, attempt restarting camera
         if (currentCameraId) {
           startCamera(currentCameraId);
         }
@@ -517,7 +576,6 @@
      Event Listeners Initialization
      ========================================================================== */
   function setupEventListeners() {
-    // Camera Selection Dropdown
     elements.cameraSelect.addEventListener('change', (e) => {
       currentCameraId = e.target.value;
       if (currentCameraId) {
@@ -525,7 +583,6 @@
       }
     });
 
-    // Torch Button
     elements.torchBtn.addEventListener('click', async () => {
       if (!html5Qrcode) return;
       try {
@@ -537,7 +594,6 @@
       }
     });
 
-    // Audio Sound Toggle
     const storedAudio = localStorage.getItem(STORAGE_KEY_AUDIO);
     audioEnabled = storedAudio !== null ? storedAudio === 'true' : true;
     updateAudioIcon();
@@ -549,10 +605,10 @@
     });
 
     function updateAudioIcon() {
+      elements.audioIcon.textContent = audioEnabled ? '🔊' : '%EF%B8%8F';
       elements.audioIcon.textContent = audioEnabled ? '🔊' : '🔇';
     }
 
-    // Manual Input Toggle
     elements.toggleManualBtn.addEventListener('click', () => {
       elements.manualContainer.classList.toggle('hidden');
       if (!elements.manualContainer.classList.contains('hidden')) {
@@ -560,7 +616,6 @@
       }
     });
 
-    // Manual Form Submit
     elements.manualForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const token = elements.manualTokenInput.value.trim();
@@ -572,15 +627,12 @@
       }
     });
 
-    // Check In Button
     elements.checkinBtn.addEventListener('click', checkInTicket);
 
-    // Scan Again Buttons (all instances across cards)
     elements.scanAgainBtns.forEach(btn => {
       btn.addEventListener('click', resetAndResumeScanner);
     });
 
-    // Camera Retry Button
     elements.retryCameraBtn.addEventListener('click', initScanner);
     elements.fallbackManualBtn.addEventListener('click', () => {
       showView(sections.scanning);
@@ -588,7 +640,6 @@
       elements.manualTokenInput.focus();
     });
 
-    // Settings Modal Listeners
     elements.settingsBtn.addEventListener('click', () => {
       elements.apiUrlInput.value = getApiUrl();
       elements.settingsModal.classList.remove('hidden');
