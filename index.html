@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Dandiya Ticket Verification</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- HTML5 QR Code Scanner Library -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <span class="brand-icon">🪔</span>
+        <div class="brand-text">
+          <h1>Dandiya Night</h1>
+          <span class="sub-title">Ticket Verification System</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="audio-toggle-btn" class="icon-btn" title="Toggle Sound Feedback">
+          <span id="audio-icon">🔊</span>
+        </button>
+        <button id="settings-btn" class="icon-btn" title="Settings / API Config">
+          <span>⚙️</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- State 1: SCANNING VIEW -->
+    <section id="scanning-section" class="view-section active">
+      <div class="card scanner-card">
+        <div class="card-header">
+          <h2>Scan Ticket QR</h2>
+          <p class="subtitle">Position ticket QR code inside the camera frame</p>
+        </div>
+
+        <div class="scanner-wrapper">
+          <div id="qr-reader" class="qr-reader-viewport"></div>
+          <div class="scanner-overlay">
+            <div class="scan-frame">
+              <div class="corner top-left"></div>
+              <div class="corner top-right"></div>
+              <div class="corner bottom-left"></div>
+              <div class="corner bottom-right"></div>
+              <div class="scan-line"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Camera Control Bar -->
+        <div class="camera-controls">
+          <div class="control-group">
+            <label for="camera-select">Camera:</label>
+            <select id="camera-select" class="form-select">
+              <option value="">Detecting cameras...</option>
+            </select>
+          </div>
+          <button id="torch-toggle-btn" class="btn btn-secondary btn-sm hidden">
+            <span>🔦 Torch</span>
+          </button>
+        </div>
+
+        <!-- Manual Input Drawer Toggle -->
+        <div class="manual-input-toggle">
+          <button id="toggle-manual-btn" class="btn-text">
+            <span>⌨️ Can't scan? Enter Token Manually</span>
+          </button>
+        </div>
+
+        <!-- Manual Token Form -->
+        <div id="manual-input-container" class="manual-container hidden">
+          <form id="manual-token-form" class="manual-form">
+            <input 
+              type="text" 
+              id="manual-token-input" 
+              placeholder="Paste or type QR Token / UUID" 
+              required
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="submit" class="btn btn-primary">Verify Token</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- Loading Overlay / Spinner Card -->
+    <section id="loading-section" class="view-section hidden">
+      <div class="card status-card loading-card">
+        <div class="spinner"></div>
+        <h3 id="loading-title">Verifying Ticket...</h3>
+        <p id="loading-desc">Communicating with backend database</p>
+      </div>
+    </section>
+
+
+    <!-- State 2: VALID TICKET RESULT -->
+    <section id="valid-section" class="view-section hidden">
+      <div class="card result-card card-valid">
+        <div class="status-banner banner-valid">
+          <div class="banner-icon">✓</div>
+          <div class="banner-text">
+            <span class="status-tag">VERIFIED</span>
+            <h2>VALID TICKET</h2>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="ticket-entry-highlight">
+            <span class="label">Admit Limit</span>
+            <span id="valid-entry" class="entry-badge">2 People</span>
+          </div>
+
+          <div class="ticket-details-grid">
+            <div class="detail-item">
+              <span class="detail-label">Name</span>
+              <span id="valid-name" class="detail-value text-bold">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Ticket ID</span>
+              <span id="valid-ticket-id" class="detail-value text-mono">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Ticket Type</span>
+              <span id="valid-ticket-type" class="detail-value">-</span>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <button id="checkin-btn" class="btn btn-success btn-lg btn-block">
+              <span class="btn-icon">📥</span>
+              <span class="btn-text">CHECK IN</span>
+            </button>
+            <button class="btn btn-outline btn-block scan-again-btn">
+              <span>📷 Cancel / Scan Another</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- State 3: AFTER SUCCESSFUL CHECK-IN -->
+    <section id="checked-in-section" class="view-section hidden">
+      <div class="card result-card card-checked-in">
+        <div class="status-banner banner-checked-in">
+          <div class="banner-icon">🎉</div>
+          <div class="banner-text">
+            <span class="status-tag">SUCCESS</span>
+            <h2>CHECKED IN</h2>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="success-message">
+            <p>Guest entry registered successfully in database.</p>
+          </div>
+
+          <div class="ticket-entry-highlight style-success">
+            <span class="label">Allowed Entry</span>
+            <span id="checked-entry" class="entry-badge">2 People</span>
+          </div>
+
+          <div class="ticket-details-grid">
+            <div class="detail-item">
+              <span class="detail-label">Name</span>
+              <span id="checked-name" class="detail-value text-bold">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Ticket ID</span>
+              <span id="checked-ticket-id" class="detail-value text-mono">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Ticket Type</span>
+              <span id="checked-ticket-type" class="detail-value">-</span>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <button class="btn btn-primary btn-lg btn-block scan-again-btn">
+              <span>📷 SCAN AGAIN</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- State 4: ALREADY USED (CHECKED IN = YES) -->
+    <section id="used-section" class="view-section hidden">
+      <div class="card result-card card-used">
+        <div class="status-banner banner-used">
+          <div class="banner-icon">✕</div>
+          <div class="banner-text">
+            <span class="status-tag">ENTRY DENIED</span>
+            <h2>ALREADY USED</h2>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="alert-box alert-warning">
+            <span class="alert-icon">⚠️</span>
+            <p id="used-message">This ticket has already been checked in.</p>
+          </div>
+
+          <div class="ticket-details-grid" id="used-details-container">
+            <div class="detail-item">
+              <span class="detail-label">Name</span>
+              <span id="used-name" class="detail-value text-bold">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Ticket ID</span>
+              <span id="used-ticket-id" class="detail-value text-mono">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Ticket Type</span>
+              <span id="used-ticket-type" class="detail-value">-</span>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <button class="btn btn-primary btn-lg btn-block scan-again-btn">
+              <span>📷 SCAN AGAIN</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- State 5 & 6: INVALID PAYMENT or TOKEN NOT FOUND -->
+    <section id="invalid-section" class="view-section hidden">
+      <div class="card result-card card-invalid">
+        <div class="status-banner banner-invalid">
+          <div class="banner-icon">✕</div>
+          <div class="banner-text">
+            <span class="status-tag">INVALID</span>
+            <h2>INVALID TICKET</h2>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="alert-box alert-danger">
+            <span class="alert-icon">🚫</span>
+            <p id="invalid-message">Ticket not found in the ticket database.</p>
+          </div>
+
+          <div class="card-actions">
+            <button class="btn btn-primary btn-lg btn-block scan-again-btn">
+              <span>📷 SCAN AGAIN</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- State 7: CAMERA ERROR -->
+    <section id="camera-error-section" class="view-section hidden">
+      <div class="card result-card card-error">
+        <div class="status-banner banner-error">
+          <div class="banner-icon">📷</div>
+          <div class="banner-text">
+            <span class="status-tag">ERROR</span>
+            <h2>Camera Error</h2>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="alert-box alert-danger">
+            <p id="camera-error-message">Unable to access camera. Please allow camera permission in browser settings.</p>
+          </div>
+
+          <div class="error-instructions">
+            <h4>Troubleshooting Steps:</h4>
+            <ul>
+              <li>Ensure camera permission is allowed for this website.</li>
+              <li>Close other apps using the camera (e.g. WhatsApp, Camera app).</li>
+              <li>Make sure you are accessing over HTTPS.</li>
+            </ul>
+          </div>
+
+          <div class="card-actions">
+            <button id="retry-camera-btn" class="btn btn-primary btn-lg btn-block">
+              <span>🔄 TRY AGAIN</span>
+            </button>
+            <button id="fallback-manual-btn" class="btn btn-outline btn-block">
+              <span>⌨️ Use Manual Token Entry</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Backend Settings</h3>
+          <button id="close-settings-btn" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="api-url-input">Google Apps Script Web App URL:</label>
+            <input 
+              type="url" 
+              id="api-url-input" 
+              class="form-control" 
+              placeholder="https://script.google.com/macros/s/.../exec"
+            />
+            <small class="help-text">Direct URL connected to Dandiya Google Sheet.</small>
+          </div>
+          <div class="form-actions">
+            <button id="reset-api-url-btn" class="btn btn-text">Reset to Default</button>
+            <button id="save-settings-btn" class="btn btn-primary">Save Settings</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <p>Dandiya Event Gate Access • Mobile QR Verification</p>
+  </footer>
+
+  <!-- App Script Logic -->
+  <script src="script.js"></script>
+</body>
+</html>
