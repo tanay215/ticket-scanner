@@ -19,6 +19,7 @@
   let lastScannedToken = null;
   let audioEnabled = true;
   let torchOn = false;
+  let isCheckingIn = false;
 
   // Clear legacy/stale localstorage keys from earlier deployments
   try {
@@ -404,10 +405,13 @@
     document.getElementById('loading-desc').textContent = 'Checking database records...';
 
     try {
+      const tStart = performance.now();
       const data = await sendApiRequest({
         action: 'verifyTicket',
         token: token
       });
+      const tEnd = performance.now();
+      console.log(`Verify API request took ${(tEnd - tStart).toFixed(2)} ms`);
 
       currentTicketData = { ...data, token: token };
       displayVerificationResult(data);
@@ -479,22 +483,29 @@
      2. Check-In Ticket Action
      ========================================================================== */
   async function checkInTicket() {
+    if (isCheckingIn) return;
+
     if (!currentTicketData || !currentTicketData.token) {
       alert('Error: Missing ticket token.');
       return;
     }
 
+    isCheckingIn = true;
     elements.checkinBtn.disabled = true;
+    elements.checkinBtn.style.pointerEvents = 'none';
     elements.checkinBtn.querySelector('.btn-text').textContent = 'Checking in...';
     elements.checkinBtn.querySelector('.btn-icon').textContent = '⏳';
 
     const token = currentTicketData.token;
 
     try {
+      const tStart = performance.now();
       const data = await sendApiRequest({
         action: 'checkInTicket',
         token: token
       });
+      const tEnd = performance.now();
+      console.log(`CheckIn API request took ${(tEnd - tStart).toFixed(2)} ms`);
 
       if (data.success || data.status === 'SUCCESS' || data.status === 'VALID') {
         playSound('success');
@@ -522,8 +533,10 @@
       playSound('error');
       triggerHaptic('error');
       alert('Network error while checking in ticket. Please check your internet connection and try again.');
-      
+    } finally {
+      isCheckingIn = false;
       elements.checkinBtn.disabled = false;
+      elements.checkinBtn.style.pointerEvents = 'auto';
       elements.checkinBtn.querySelector('.btn-text').textContent = 'CHECK IN';
       elements.checkinBtn.querySelector('.btn-icon').textContent = '📥';
     }

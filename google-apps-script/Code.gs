@@ -566,6 +566,7 @@ function getEntryRule(ticketType) {
  * 1. Verify Ticket Logic
  */
 function verifyTicket(token) {
+  var tStart = Date.now();
   var sheet = getTicketSheet();
   if (!sheet) {
     return {
@@ -574,32 +575,40 @@ function verifyTicket(token) {
     };
   }
 
-  var data = sheet.getDataRange().getValues();
-  var tokenLower = token.toLowerCase();
+  var tSheet = Date.now();
   
-  var matchedRowIndex = -1;
-  for (var i = 1; i < data.length; i++) {
-    var rowToken = String(data[i][COL_QR_TOKEN - 1]).trim();
-    if (rowToken.toLowerCase() === tokenLower) {
-      matchedRowIndex = i;
-      break;
-    }
-  }
+  // O(1) lookup using TextFinder instead of pulling all rows into memory
+  var finder = sheet.getRange(1, COL_QR_TOKEN, sheet.getLastRow() || 1, 1)
+                    .createTextFinder(token)
+                    .matchEntireCell(true)
+                    .matchCase(false);
+  var match = finder.findNext();
+  
+  var tFind = Date.now();
 
-  if (matchedRowIndex === -1) {
+  if (!match) {
+    Logger.log("Verify: Token not found. Time: " + (tFind - tStart) + "ms");
     return {
       status: 'INVALID',
       message: 'Ticket not found in the ticket database.'
     };
   }
 
-  var matchedRow = data[matchedRowIndex];
+  var row = match.getRow();
+  
+  // Fetch only this specific row up to the Checked In column
+  var maxColNeeded = Math.max(COL_FULL_NAME, COL_TICKET_ID, COL_TICKET_TYPE, COL_PAYMENT_STATUS, COL_CHECKED_IN);
+  var matchedRow = sheet.getRange(row, 1, 1, maxColNeeded).getValues()[0];
+  
   var name = String(matchedRow[COL_FULL_NAME - 1]).trim();
   var ticketId = String(matchedRow[COL_TICKET_ID - 1]).trim();
   var ticketType = String(matchedRow[COL_TICKET_TYPE - 1]).trim();
   var paymentStatus = String(matchedRow[COL_PAYMENT_STATUS - 1]).trim().toUpperCase();
   var checkedIn = String(matchedRow[COL_CHECKED_IN - 1]).trim().toUpperCase();
   var entryRule = getEntryRule(ticketType);
+  
+  var tFetch = Date.now();
+  Logger.log("VerifyTiming: SheetLoad=" + (tSheet-tStart) + "ms, TokenFind=" + (tFind-tSheet) + "ms, DataFetch=" + (tFetch-tFind) + "ms, Total=" + (tFetch-tStart) + "ms");
 
   if (paymentStatus !== 'PAID') {
     return {
@@ -632,97 +641,97 @@ function verifyTicket(token) {
  * 2. Check-In Ticket Logic with LockService Concurrency Guard
  */
 function checkInTicket(token) {
-  var lock = LockService.getScriptLock();
+  var tStart = Date.now();
   
-  var success = lock.tryLock(10000);
-  if (!success) {
-    return {
-      success: false,
-      status: 'ERROR',
-      message: 'Server busy handling concurrent check-ins. Please tap CHECK IN again.'
-    };
-  }
-
   try {
     var sheet = getTicketSheet();
     if (!sheet) {
-      return {
-        success: false,
-        status: 'INVALID',
-        message: 'Spreadsheet tab not found in ticket database.'
-      };
+      return { success: false, status: 'INVALID', message: 'Spreadsheet tab not found.' };
     }
 
-    var data = sheet.getDataRange().getValues();
-    var tokenLower = token.toLowerCase();
-    var matchedRowIndex = -1;
+    var tSheet = Date.now();
 
-    for (var i = 1; i < data.length; i++) {
-      var rowToken = String(data[i][COL_QR_TOKEN - 1]).trim();
-      if (rowToken.toLowerCase() === tokenLower) {
-        matchedRowIndex = i;
-        break;
-      }
+    // Fast lookup OUTSIDE the lock
+    var finder = sheet.getRange(1, COL_QR_TOKEN, sheet.getLastRow() || 1, 1)
+                      .createTextFinder(token)
+                      .matchEntireCell(true)
+                      .matchCase(false);
+    var match = finder.findNext();
+    
+    var tFind = Date.now();
+
+    if (!match) {
+      Logger.log("CheckIn: Token not found. Time: " + (tFind - tStart) + "ms");
+      return { success: false, status: 'INVALID', message: 'Ticket not found in the ticket database.' };
     }
 
-    if (matchedRowIndex === -1) {
-      return {
-        success: false,
-        status: 'INVALID',
-        message: 'Ticket not found in the ticket database.'
-      };
-    }
-
-    var matchedRow = data[matchedRowIndex];
-    var name = String(matchedRow[COL_FULL_NAME - 1]).trim();
-    var ticketId = String(matchedRow[COL_TICKET_ID - 1]).trim();
-    var ticketType = String(matchedRow[COL_TICKET_TYPE - 1]).trim();
+    var row = match.getRow();
+    var maxColNeeded = Math.max(COL_FULL_NAME, COL_TICKET_ID, COL_TICKET_TYPE, COL_PAYMENT_STATUS);
+    var matchedRow = sheet.getRange(row, 1, 1, maxColNeeded).getValues()[0];
+    
     var paymentStatus = String(matchedRow[COL_PAYMENT_STATUS - 1]).trim().toUpperCase();
-    var checkedIn = String(matchedRow[COL_CHECKED_IN - 1]).trim().toUpperCase();
-    var entryRule = getEntryRule(ticketType);
+
+    var tFetch = Date.now();
 
     if (paymentStatus !== 'PAID') {
-      return {
-        success: false,
-        status: 'INVALID',
-        message: 'Payment has not been verified for this ticket.'
-      };
+      return { success: false, status: 'INVALID', message: 'Payment has not been verified for this ticket.' };
     }
 
-    if (checkedIn === 'YES') {
+    // CRITICAL SECTION: Acquire lock only for checking and updating the check-in status
+    var lock = LockService.getScriptLock();
+    var success = lock.tryLock(10000);
+    if (!success) {
+      return { success: false, status: 'ERROR', message: 'Server busy handling concurrent check-ins. Please tap CHECK IN again.' };
+    }
+
+    var tLock = Date.now();
+    try {
+      // Re-read Checked In status directly
+      var currentCheckIn = String(sheet.getRange(row, COL_CHECKED_IN).getValue()).trim().toUpperCase();
+
+      if (currentCheckIn === 'YES') {
+        var name = String(matchedRow[COL_FULL_NAME - 1]).trim();
+        var ticketId = String(matchedRow[COL_TICKET_ID - 1]).trim();
+        var ticketType = String(matchedRow[COL_TICKET_TYPE - 1]).trim();
+        return {
+          success: false,
+          status: 'USED',
+          message: 'This ticket has already been checked in.',
+          name: name,
+          ticketId: ticketId,
+          ticketType: ticketType,
+          entry: getEntryRule(ticketType)
+        };
+      }
+
+      // Update Checked In column (Column M, index 13) to "YES"
+      sheet.getRange(row, COL_CHECKED_IN).setValue('YES');
+      
+      // Flush is necessary here before lock release so concurrent requests read the updated 'YES'
+      SpreadsheetApp.flush();
+      
+      var tEnd = Date.now();
+      Logger.log("CheckInTiming: SheetLoad=" + (tSheet-tStart) + "ms, TokenFind=" + (tFind-tSheet) + 
+                 "ms, DataFetch=" + (tFetch-tFind) + "ms, LockAcquire=" + (tLock-tFetch) + 
+                 "ms, WriteFlush=" + (tEnd-tLock) + "ms, Total=" + (tEnd-tStart) + "ms");
+
+      var name = String(matchedRow[COL_FULL_NAME - 1]).trim();
+      var ticketId = String(matchedRow[COL_TICKET_ID - 1]).trim();
+      var ticketType = String(matchedRow[COL_TICKET_TYPE - 1]).trim();
+
       return {
-        success: false,
-        status: 'USED',
-        message: 'This ticket has already been checked in.',
+        success: true,
+        status: 'SUCCESS',
         name: name,
         ticketId: ticketId,
         ticketType: ticketType,
-        entry: entryRule
+        entry: getEntryRule(ticketType)
       };
+
+    } finally {
+      lock.releaseLock();
     }
-
-    // Update Checked In column (Column M, index 13) to "YES"
-    var sheetRowNumber = matchedRowIndex + 1;
-    sheet.getRange(sheetRowNumber, COL_CHECKED_IN).setValue('YES');
-
-    SpreadsheetApp.flush();
-
-    return {
-      success: true,
-      status: 'SUCCESS',
-      name: name,
-      ticketId: ticketId,
-      ticketType: ticketType,
-      entry: entryRule
-    };
-
   } catch (err) {
-    return {
-      success: false,
-      status: 'ERROR',
-      message: 'Check-in error: ' + err.toString()
-    };
-  } finally {
-    lock.releaseLock();
+    return { success: false, status: 'ERROR', message: 'Check-in error: ' + err.toString() };
   }
 }
