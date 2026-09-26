@@ -1,5 +1,5 @@
 /**
- * Dandiya Ticket Verification System - Frontend Logic
+ * Ticket Verification System - Frontend Logic
  * Standalone HTTPS Frontend for GitHub Pages & Mobile Web
  * 
  * Uses Cross-Origin JSONP API communication with Google Apps Script Web App
@@ -11,8 +11,8 @@
 
   // Configuration Constants
   const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxPHVM-MMy1K0ogIoqv4UR16iAXp0nZER9Ei-VcpvOaP-EzyKhhRzeVhWWeGyHx44LQ/exec';
-  const STORAGE_KEY_API = 'dandiya_api_url';
-  const STORAGE_KEY_AUDIO = 'dandiya_audio_enabled';
+  const STORAGE_KEY_API = 'ticket_scanner_api_url';
+  const STORAGE_KEY_AUDIO = 'ticket_scanner_audio_enabled';
 
   // State Variables
   let html5Qrcode = null;
@@ -105,7 +105,7 @@
      ========================================================================== */
   function sendApiRequest(params) {
     return new Promise((resolve, reject) => {
-      const callbackName = 'dandiya_cb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+      const callbackName = 'ticket_cb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
       const timeoutMs = 15000; // 15 second timeout
       let timeoutTimer = null;
 
@@ -148,7 +148,6 @@
 
       script.onerror = function () {
         cleanup();
-        // Fallback to fetch if script tag fails
         fetchFallback(params).then(resolve).catch(reject);
       };
 
@@ -197,11 +196,11 @@
         osc1.type = 'sine';
         osc2.type = 'sine';
 
-        osc1.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-        osc1.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5
+        osc1.frequency.setValueAtTime(587.33, ctx.currentTime);
+        osc1.frequency.setValueAtTime(880, ctx.currentTime + 0.1);
 
         osc2.frequency.setValueAtTime(880, ctx.currentTime); 
-        osc2.frequency.setValueAtTime(1174.66, ctx.currentTime + 0.1); // D6
+        osc2.frequency.setValueAtTime(1174.66, ctx.currentTime + 0.1);
 
         gain.gain.setValueAtTime(0.3, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
@@ -284,7 +283,6 @@
         html5Qrcode = new Html5Qrcode("qr-reader");
       }
 
-      // Query cameras
       const devices = await Html5Qrcode.getCameras();
       populateCameraDropdown(devices);
 
@@ -386,7 +384,6 @@
       return;
     }
 
-    // Pause scanner immediately to prevent duplicate requests
     if (html5Qrcode && isScanning) {
       try {
         html5Qrcode.pause(true);
@@ -397,7 +394,6 @@
 
     let token = decodedText.trim();
 
-    // Extract token if QR contains full URL
     if (token.includes('token=')) {
       try {
         const urlObj = new URL(token);
@@ -455,7 +451,6 @@
       elements.validTicketType.textContent = data.ticketType || 'Standard';
       elements.validEntry.textContent = data.entry || formatEntryRule(data.ticketType);
 
-      // Reset Check-in button state
       elements.checkinBtn.disabled = false;
       elements.checkinBtn.querySelector('.btn-text').textContent = 'CHECK IN';
       elements.checkinBtn.querySelector('.btn-icon').textContent = '📥';
@@ -605,7 +600,6 @@
     });
 
     function updateAudioIcon() {
-      elements.audioIcon.textContent = audioEnabled ? '🔊' : '%EF%B8%8F';
       elements.audioIcon.textContent = audioEnabled ? '🔊' : '🔇';
     }
 
