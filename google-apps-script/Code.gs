@@ -2,7 +2,7 @@
  * Ticket Verification, Check-in & Automatic Ticket Generation Backend
  * Google Apps Script Web App
  * 
- * Google Sheet Tab Name: "dandiya"
+ * Google Sheet Tab Name: "dandiya" (or automatically falls back to first sheet tab)
  * Columns:
  * A (1)  : Timestamp
  * B (2)  : Full Name
@@ -32,6 +32,33 @@ const COL_CHECKED_IN     = 13; // M
 
 
 /**
+ * Helper to safely acquire target Sheet tab
+ * 1. Checks exact tab name "dandiya"
+ * 2. Checks case-insensitive tab name "dandiya"
+ * 3. Fallback: Returns the very first sheet tab in the spreadsheet
+ */
+function getTicketSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) return null;
+
+  // 1. Try exact match
+  var sheet = ss.getSheetByName(SHEET_NAME);
+  if (sheet) return sheet;
+
+  // 2. Try case-insensitive match
+  var sheets = ss.getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].getName().trim().toLowerCase() === SHEET_NAME.toLowerCase()) {
+      return sheets[i];
+    }
+  }
+
+  // 3. Fallback to first sheet tab
+  return (sheets && sheets.length > 0) ? sheets[0] : null;
+}
+
+
+/**
  * 0. Automatic Ticket Generator Trigger
  * Trigger: On Form Submit (or run on edit)
  */
@@ -41,7 +68,7 @@ function generateTicketData(e) {
     sheet = e.range.getSheet();
     row = e.range.getRow();
   } else {
-    sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+    sheet = getTicketSheet();
     if (!sheet) return;
     row = sheet.getLastRow();
   }
@@ -202,11 +229,11 @@ function getEntryRule(ticketType) {
  * 1. Verify Ticket Logic
  */
 function verifyTicket(token) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  var sheet = getTicketSheet();
   if (!sheet) {
     return {
       status: 'INVALID',
-      message: 'Sheet "' + SHEET_NAME + '" not found in spreadsheet.'
+      message: 'Spreadsheet tab not found in ticket database.'
     };
   }
 
@@ -280,12 +307,12 @@ function checkInTicket(token) {
   }
 
   try {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+    var sheet = getTicketSheet();
     if (!sheet) {
       return {
         success: false,
         status: 'INVALID',
-        message: 'Sheet "' + SHEET_NAME + '" not found in spreadsheet.'
+        message: 'Spreadsheet tab not found in ticket database.'
       };
     }
 
